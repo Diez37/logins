@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Diez37/go-skeleton/interface/cli"
+	"github.com/Diez37/logins/interface/cli"
 	"github.com/diez37/go-packages/closer"
 	_ "github.com/joho/godotenv/autoload"
 	"os"
