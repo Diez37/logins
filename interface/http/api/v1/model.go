@@ -19,7 +19,7 @@ type Meta struct {
 type Login struct {
 	Uuid      uuid.UUID  `json:"uuid" validate:"-"`
 	Login     string     `json:"login" validate:"required"`
-	Banned    bool       `json:"banned" validate:"-"`
+	Banned    *bool      `json:"banned" validate:"-"`
 	CreatedAt *time.Time `json:"createdAt" validate:"-"`
 	UpdateAt  *time.Time `json:"updateAt" validate:"-"`
 }

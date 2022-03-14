@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	container2 "github.com/Diez37/logins/infrastructure/container"
 	"github.com/Diez37/logins/interface/http"
 	"github.com/diez37/go-packages/app"
@@ -42,10 +41,7 @@ func NewRootCommand() (*cobra.Command, error) {
 					return err
 				}
 
-				ctx, cancelFnc := context.WithCancel(closer.GetContext())
-				defer cancelFnc()
-
-				return http.Serve(ctx, container, logger)
+				return http.Serve(closer.GetContext(), container, logger)
 			})
 		},
 	}

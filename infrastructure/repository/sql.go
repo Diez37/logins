@@ -26,10 +26,13 @@ func NewSql(db goqu.SQLDatabase, tracer trace.Tracer) Repository {
 }
 
 func (repository *sql) FindByUuid(ctx context.Context, uuid uuid.UUID) (*Login, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:FindByUuid")
+	ctx, span := repository.tracer.Start(ctx, "FindByUuid")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("uuid", uuid.String()))
+	span.SetAttributes(
+		attribute.String("uuid", uuid.String()),
+		attribute.String("repository", "sql"),
+	)
 
 	sql, args, err := goqu.From(sqlTableName).Where(goqu.Ex{"uuid": uuid}).ToSQL()
 	if err != nil {
@@ -40,10 +43,13 @@ func (repository *sql) FindByUuid(ctx context.Context, uuid uuid.UUID) (*Login, 
 }
 
 func (repository *sql) FindByLogin(ctx context.Context, login string) (*Login, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:FindByLogin")
+	ctx, span := repository.tracer.Start(ctx, "FindByLogin")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("login", login))
+	span.SetAttributes(
+		attribute.String("login", login),
+		attribute.String("repository", "sql"),
+	)
 
 	sql, args, err := goqu.From(sqlTableName).Where(goqu.Ex{"login": login}).ToSQL()
 	if err != nil {
@@ -54,13 +60,18 @@ func (repository *sql) FindByLogin(ctx context.Context, login string) (*Login, e
 }
 
 func (repository *sql) find(ctx context.Context, sql string, args ...interface{}) (*Login, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:find")
+	ctx, span := repository.tracer.Start(ctx, "find")
 	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("repository", "sql"),
+	)
 
 	rows, err := repository.db.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -77,10 +88,13 @@ func (repository *sql) find(ctx context.Context, sql string, args ...interface{}
 }
 
 func (repository *sql) BanByUuid(ctx context.Context, uuid uuid.UUID) (bool, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:BanByUuid")
+	ctx, span := repository.tracer.Start(ctx, "BanByUuid")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("uuid", uuid.String()))
+	span.SetAttributes(
+		attribute.String("uuid", uuid.String()),
+		attribute.String("repository", "sql"),
+	)
 
 	sql, args, err := goqu.Update(sqlTableName).
 		Set(goqu.Record{"banned": true, "update_at": time.NowUTC()}).
@@ -107,8 +121,12 @@ func (repository *sql) BanByUuid(ctx context.Context, uuid uuid.UUID) (bool, err
 }
 
 func (repository *sql) Count(ctx context.Context) (int64, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:Count")
+	ctx, span := repository.tracer.Start(ctx, "Count")
 	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("repository", "sql"),
+	)
 
 	sql, _, err := goqu.From(sqlTableName).Select(goqu.COUNT("uuid")).ToSQL()
 	if err != nil {
@@ -119,6 +137,8 @@ func (repository *sql) Count(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		count := int64(0)
@@ -134,10 +154,14 @@ func (repository *sql) Count(ctx context.Context) (int64, error) {
 }
 
 func (repository *sql) Page(ctx context.Context, page uint, limit uint) ([]*Login, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:Page")
+	ctx, span := repository.tracer.Start(ctx, "Page")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("page", int(page)), attribute.Int("limit", int(limit)))
+	span.SetAttributes(
+		attribute.Int("page", int(page)),
+		attribute.Int("limit", int(limit)),
+		attribute.String("repository", "sql"),
+	)
 
 	sql, args, err := goqu.From(sqlTableName).Where(
 		goqu.Ex{"id": goqu.Op{exp.GtOp.String(): page * limit}},
@@ -151,6 +175,8 @@ func (repository *sql) Page(ctx context.Context, page uint, limit uint) ([]*Logi
 	if err != nil {
 		return nil, err
 	}
+
+	defer rows.Close()
 
 	var logins []*Login
 
@@ -172,10 +198,13 @@ func (repository *sql) Page(ctx context.Context, page uint, limit uint) ([]*Logi
 }
 
 func (repository *sql) Update(ctx context.Context, login *Login) (*Login, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:Update")
+	ctx, span := repository.tracer.Start(ctx, "Update")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("action", "update"))
+	span.SetAttributes(
+		attribute.String("uuid", login.Uuid.String()),
+		attribute.String("repository", "sql"),
+	)
 
 	now := time.NowUTC()
 	login.UpdateAt = &now
@@ -198,10 +227,13 @@ func (repository *sql) Update(ctx context.Context, login *Login) (*Login, error)
 }
 
 func (repository *sql) Insert(ctx context.Context, login *Login) (*Login, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:Insert")
+	ctx, span := repository.tracer.Start(ctx, "Insert")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("action", "insert"))
+	span.SetAttributes(
+		attribute.String("login", login.Login),
+		attribute.String("repository", "sql"),
+	)
 
 	login.Uuid = uuid.New()
 
