@@ -11,12 +11,12 @@ type Finder interface {
 }
 
 type Saver interface {
-	Save(ctx context.Context, login *Login) (*Login, error)
+	Insert(ctx context.Context, login *Login) (*Login, error)
+	Update(ctx context.Context, login *Login) (*Login, error)
 }
 
 type Blocker interface {
 	BanByUuid(ctx context.Context, uuid uuid.UUID) (bool, error)
-	BanByLogin(ctx context.Context, login string) (bool, error)
 }
 
 type Getter interface {

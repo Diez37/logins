@@ -14,22 +14,27 @@ func Router(repository repository.Repository, tracer trace.Tracer, errorHelper *
 	apiV1 := v1.NewAPI(repository, tracer, errorHelper, logger)
 
 	router := chi.NewRouter()
-	// 106e08fc-183d-4edc-93f9-391092ccfa97
+
 	router.Route("/v1", func(r chi.Router) {
+		r.Put("/login", apiV1.Add)
+
 		r.Route(fmt.Sprintf("/uuid/{%s}", v1.UuidFieldName), func(r chi.Router) {
-			r.Use(v1.UuidField)
+			r.Use(v1.NewUuid(logger).Middleware)
 			r.Get("/", apiV1.FindByUuid)
 			r.Delete("/", apiV1.BanByUuid)
+			r.Post("/", apiV1.UpdateByUuid)
 		})
+
 		r.Route(fmt.Sprintf("/login/{%s}", v1.LoginFieldName), func(r chi.Router) {
 			r.Use(v1.LoginField)
 			r.Get("/", apiV1.FindByLogin)
-			r.Put("/", apiV1.Add)
-			r.Delete("/", apiV1.BanByLogin)
 		})
-		r.Route("/", func(r chi.Router) {
-			r.Use(v1.PageFields)
-			r.Get("/page", apiV1.Page)
+
+		r.Get("/count", apiV1.Count)
+		r.Route("/logins", func(r chi.Router) {
+			r.Use(v1.PageField)
+			r.Use(v1.LimitField)
+			r.Get("/", apiV1.Page)
 		})
 	})
 

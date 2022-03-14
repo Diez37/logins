@@ -4,4 +4,4 @@ migrator:
 db:
   driver: sqlite
   sqlite:
-    dsn: /home/diez37/GolandProjects/logins/db
+    dsn: ./db

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/diez37/go-packages/clients/db"
 	"github.com/doug-martin/goqu/v9"
+	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -65,7 +66,7 @@ func (repository *sql) find(ctx context.Context, sql string, args ...interface{}
 	for rows.Next() {
 		login := &Login{}
 
-		if err := rows.Scan(&login.Uuid, &login.Login, &login.Ban, &login.CreatedAt, &login.UpdateAt); err != nil {
+		if err := rows.Scan(&login.Id, &login.Uuid, &login.Login, &login.Ban, &login.CreatedAt, &login.UpdateAt); err != nil {
 			return nil, err
 		}
 
@@ -73,41 +74,6 @@ func (repository *sql) find(ctx context.Context, sql string, args ...interface{}
 	}
 
 	return nil, db.RecordNotFoundError
-}
-
-func (repository *sql) Save(ctx context.Context, login *Login) (*Login, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:Save")
-	defer span.End()
-
-	var sql string
-	var args []interface{}
-	var err error
-
-	now := time.Now()
-
-	if login.Uuid == uuid.Nil {
-		span.SetAttributes(attribute.String("action", "insert"))
-
-		login.Uuid = uuid.New()
-
-		login.CreatedAt = &now
-
-		sql, args, err = goqu.Insert(sqlTableName).Rows(login).ToSQL()
-	} else {
-		span.SetAttributes(attribute.String("action", "update"))
-
-		login.UpdateAt = &now
-
-		sql, args, err = goqu.Update(sqlTableName).Set(login).Where(goqu.Ex{"uuid": login.Uuid}).ToSQL()
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = repository.db.ExecContext(ctx, sql, args...)
-
-	return login, err
 }
 
 func (repository *sql) BanByUuid(ctx context.Context, uuid uuid.UUID) (bool, error) {
@@ -122,29 +88,6 @@ func (repository *sql) BanByUuid(ctx context.Context, uuid uuid.UUID) (bool, err
 	if err != nil {
 		return false, err
 	}
-
-	return repository.ban(ctx, sql, args...)
-}
-
-func (repository *sql) BanByLogin(ctx context.Context, login string) (bool, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:BanByLogin")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("login", login))
-
-	sql, args, err := goqu.Update(sqlTableName).
-		Set(goqu.Record{"ban": true, "update_at": time.Now()}).
-		Where(goqu.Ex{"login": login}).ToSQL()
-	if err != nil {
-		return false, err
-	}
-
-	return repository.ban(ctx, sql, args...)
-}
-
-func (repository *sql) ban(ctx context.Context, sql string, args ...interface{}) (bool, error) {
-	ctx, span := repository.tracer.Start(ctx, "repository.sql:ban")
-	defer span.End()
 
 	result, err := repository.db.ExecContext(ctx, sql, args...)
 	if err != nil {
@@ -196,7 +139,10 @@ func (repository *sql) Page(ctx context.Context, page uint, limit uint) ([]*Logi
 
 	span.SetAttributes(attribute.Int("page", int(page)), attribute.Int("limit", int(limit)))
 
-	sql, args, err := goqu.From(sqlTableName).Offset(page * limit).Limit(limit).ToSQL()
+	sql, args, err := goqu.From(sqlTableName).Where(
+		goqu.Ex{"id": goqu.Op{exp.GtOp.String(): page * limit}},
+		goqu.Ex{"id": goqu.Op{exp.LtOp.String(): ((page + 1) * limit) + 1}},
+	).ToSQL()
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +157,7 @@ func (repository *sql) Page(ctx context.Context, page uint, limit uint) ([]*Logi
 	for rows.Next() {
 		login := &Login{}
 
-		if err := rows.Scan(&login.Uuid, &login.Login, &login.Ban, &login.CreatedAt, &login.UpdateAt); err != nil {
+		if err := rows.Scan(&login.Id, &login.Uuid, &login.Login, &login.Ban, &login.CreatedAt, &login.UpdateAt); err != nil {
 			return nil, err
 		}
 
@@ -223,4 +169,52 @@ func (repository *sql) Page(ctx context.Context, page uint, limit uint) ([]*Logi
 	}
 
 	return logins, nil
+}
+
+func (repository *sql) Update(ctx context.Context, login *Login) (*Login, error) {
+	ctx, span := repository.tracer.Start(ctx, "repository.sql:Update")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("action", "update"))
+
+	now := time.Now()
+	login.UpdateAt = &now
+
+	sql, args, err := goqu.Update(sqlTableName).Set(login).Where(goqu.Ex{"uuid": login.Uuid}).ToSQL()
+
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := repository.db.ExecContext(ctx, sql, args...)
+
+	if countUpdate, err := result.RowsAffected(); err != nil {
+		return nil, err
+	} else if countUpdate == 0 {
+		return nil, db.RecordNotFoundError
+	}
+
+	return login, err
+}
+
+func (repository *sql) Insert(ctx context.Context, login *Login) (*Login, error) {
+	ctx, span := repository.tracer.Start(ctx, "repository.sql:Insert")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("action", "insert"))
+
+	login.Uuid = uuid.New()
+
+	now := time.Now()
+	login.CreatedAt = &now
+
+	sql, args, err := goqu.Insert(sqlTableName).Rows(login).ToSQL()
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = repository.db.ExecContext(ctx, sql, args...)
+
+	return login, err
 }

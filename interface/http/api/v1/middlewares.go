@@ -2,87 +2,100 @@ package v1
 
 import (
 	"context"
+	"github.com/diez37/go-packages/log"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/spf13/cast"
 	"net/http"
 )
 
-func UuidField(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		uuid := chi.URLParam(r, UuidFieldName)
+type Uuid struct {
+	logger log.Logger
+}
 
-		s, err := cast.ToStringE(uuid)
+func NewUuid(logger log.Logger) *Uuid {
+	return &Uuid{logger: logger}
+}
+
+func (middleware *Uuid) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		uuid, err := uuid.Parse(chi.URLParam(request, UuidFieldName))
+
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			middleware.logger.Error(err)
 			return
 		}
 
-		if s == "" {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), UuidFieldName, s)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		ctx := context.WithValue(request.Context(), UuidFieldName, uuid)
+		next.ServeHTTP(writer, request.WithContext(ctx))
 	})
 }
 
 func LoginField(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		login := chi.URLParam(r, LoginFieldName)
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		login := chi.URLParam(request, LoginFieldName)
 
-		s, err := cast.ToStringE(login)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		if login == "" {
+			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
-		if s == "" {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), LoginFieldName, s)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		ctx := context.WithValue(request.Context(), LoginFieldName, login)
+		next.ServeHTTP(writer, request.WithContext(ctx))
 	})
 }
 
-func PageFields(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// page
-		page := r.URL.Query().Get(PageFieldName)
-		if page == "" {
-			page = "1"
+func PageField(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		generalPageNumber := "1"
+
+		if page := request.Header.Get(PageHeaderName); page != "" {
+			generalPageNumber = page
 		}
 
-		i, err := cast.ToIntE(page)
+		if page := request.URL.Query().Get(PageFieldName); page != "" {
+			generalPageNumber = page
+		}
+
+		u, err := cast.ToUintE(generalPageNumber)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
-		if i < 1 {
-			i = 1
+		if u < 1 {
+			u = PageDefault
 		}
-		ctx := context.WithValue(r.Context(), PageFieldName, i)
+		ctx := context.WithValue(request.Context(), PageFieldName, u)
 
-		// limit
-		limit := r.URL.Query().Get(LimitFieldName)
-		if limit == "" {
-			limit = "0"
+		next.ServeHTTP(writer, request.WithContext(ctx))
+	})
+}
+
+func LimitField(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		generalLimitNumber := "0"
+
+		if limit := request.Header.Get(LimitHeaderName); limit != "" {
+			generalLimitNumber = limit
 		}
 
-		u, err := cast.ToUintE(limit)
+		if limit := request.URL.Query().Get(LimitFieldName); limit != "" {
+			generalLimitNumber = limit
+		}
+
+		u, err := cast.ToUintE(generalLimitNumber)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
 		if u == 0 {
 			u = LimitDefault
 		}
-		ctx = context.WithValue(ctx, LimitFieldName, u)
+		ctx := context.WithValue(request.Context(), LimitFieldName, u)
 
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(writer, request.WithContext(ctx))
 	})
 }

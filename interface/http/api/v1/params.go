@@ -7,9 +7,10 @@ const (
 	PageFieldName  = "page"
 	LimitFieldName = "limit"
 
-	CountHeaderName = "Pagination-Count"
-	PageHeaderName  = "Pagination-Page"
-	LimitHeaderName = "Pagination-Limit"
+	CountHeaderName = "X-Pagination-Count"
+	PageHeaderName  = "X-Pagination-Page"
+	LimitHeaderName = "X-Pagination-Limit"
 
 	LimitDefault = uint(20)
+	PageDefault  = uint(1)
 )
