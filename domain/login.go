@@ -8,7 +8,7 @@ import (
 type Login struct {
 	Uuid      uuid.UUID
 	Login     string
-	Ban       bool
+	Banned    bool
 	CreatedAt *time.Time
 	UpdateAt  *time.Time
 }

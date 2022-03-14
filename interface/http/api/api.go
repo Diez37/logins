@@ -7,11 +7,12 @@ import (
 	"github.com/diez37/go-packages/log"
 	"github.com/diez37/go-packages/server/http/helpers"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func Router(repository repository.Repository, tracer trace.Tracer, errorHelper *helpers.Error, logger log.Logger) chi.Router {
-	apiV1 := v1.NewAPI(repository, tracer, errorHelper, logger)
+func Router(repository repository.Repository, tracer trace.Tracer, errorHelper *helpers.Error, logger log.Logger, validator *validator.Validate) chi.Router {
+	apiV1 := v1.NewAPI(repository, tracer, errorHelper, logger, validator)
 
 	router := chi.NewRouter()
 

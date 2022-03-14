@@ -19,7 +19,7 @@ type Blocker interface {
 	BanByUuid(ctx context.Context, uuid uuid.UUID) (bool, error)
 }
 
-type Getter interface {
+type Paginator interface {
 	Count(ctx context.Context) (int64, error)
 	Page(ctx context.Context, page uint, limit uint) ([]*Login, error)
 }
@@ -28,5 +28,5 @@ type Repository interface {
 	Finder
 	Saver
 	Blocker
-	Getter
+	Paginator
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/diez37/go-packages/log"
 	"github.com/diez37/go-packages/server/http/helpers"
 	"github.com/go-http-utils/headers"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/ldez/mimetype"
 	"go.opentelemetry.io/otel/trace"
@@ -24,10 +25,11 @@ type API struct {
 	tracer      trace.Tracer
 	errorHelper *helpers.Error
 	logger      log.Logger
+	validator   *validator.Validate
 }
 
-func NewAPI(repository repository.Repository, tracer trace.Tracer, errorHelper *helpers.Error, logger log.Logger) *API {
-	return &API{repository: repository, tracer: tracer, errorHelper: errorHelper, logger: logger}
+func NewAPI(repository repository.Repository, tracer trace.Tracer, errorHelper *helpers.Error, logger log.Logger, validator *validator.Validate) *API {
+	return &API{repository: repository, tracer: tracer, errorHelper: errorHelper, logger: logger, validator: validator}
 }
 
 func (handler *API) Add(writer http.ResponseWriter, request *http.Request) {
@@ -47,10 +49,15 @@ func (handler *API) Add(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	if err := handler.validator.Struct(login); err != nil {
+		handler.errorHelper.Error(http.StatusBadRequest, err, writer)
+		return
+	}
+
 	loginFromRepository, err := handler.repository.Insert(ctx, &repository.Login{
 		Uuid:      login.Uuid,
 		Login:     login.Login,
-		Ban:       login.Ban,
+		Banned:    login.Banned,
 		CreatedAt: login.CreatedAt,
 		UpdateAt:  login.UpdateAt,
 	})
@@ -59,10 +66,12 @@ func (handler *API) Add(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	handler.logger.Infof("api:v1:add: login '%s'", loginFromRepository.Login)
+
 	content, err := json.Marshal(&Login{
 		Uuid:      loginFromRepository.Uuid,
 		Login:     loginFromRepository.Login,
-		Ban:       loginFromRepository.Ban,
+		Banned:    loginFromRepository.Banned,
 		CreatedAt: loginFromRepository.CreatedAt,
 		UpdateAt:  loginFromRepository.UpdateAt,
 	})
@@ -99,7 +108,7 @@ func (handler *API) UpdateByUuid(writer http.ResponseWriter, request *http.Reque
 	loginFromRepository, err := handler.repository.Update(ctx, &repository.Login{
 		Uuid:      ctx.Value(UuidFieldName).(uuid.UUID),
 		Login:     login.Login,
-		Ban:       login.Ban,
+		Banned:    login.Banned,
 		CreatedAt: login.CreatedAt,
 		UpdateAt:  login.UpdateAt,
 	})
@@ -113,10 +122,12 @@ func (handler *API) UpdateByUuid(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 
+	handler.logger.Infof("api:v1:update: login '%s'", loginFromRepository.Login)
+
 	content, err := json.Marshal(&Login{
 		Uuid:      loginFromRepository.Uuid,
 		Login:     loginFromRepository.Login,
-		Ban:       loginFromRepository.Ban,
+		Banned:    loginFromRepository.Banned,
 		CreatedAt: loginFromRepository.CreatedAt,
 		UpdateAt:  loginFromRepository.UpdateAt,
 	})
@@ -151,7 +162,7 @@ func (handler *API) FindByUuid(writer http.ResponseWriter, request *http.Request
 	content, err := json.Marshal(&Login{
 		Uuid:      login.Uuid,
 		Login:     login.Login,
-		Ban:       login.Ban,
+		Banned:    login.Banned,
 		CreatedAt: login.CreatedAt,
 		UpdateAt:  login.UpdateAt,
 	})
@@ -177,6 +188,8 @@ func (handler *API) BanByUuid(writer http.ResponseWriter, request *http.Request)
 		handler.errorHelper.Error(http.StatusInternalServerError, err, writer)
 		return
 	}
+
+	handler.logger.Infof("api:v1:ban: login '%s'", ctx.Value(UuidFieldName).(uuid.UUID).String())
 
 	if err == db.RecordNotFoundError {
 		handler.errorHelper.Error(http.StatusNotFound, errors.New(http.StatusText(http.StatusNotFound)), writer)
@@ -204,7 +217,7 @@ func (handler *API) FindByLogin(writer http.ResponseWriter, request *http.Reques
 	content, err := json.Marshal(&Login{
 		Uuid:      login.Uuid,
 		Login:     login.Login,
-		Ban:       login.Ban,
+		Banned:    login.Banned,
 		CreatedAt: login.CreatedAt,
 		UpdateAt:  login.UpdateAt,
 	})
@@ -257,7 +270,7 @@ func (handler *API) Page(writer http.ResponseWriter, request *http.Request) {
 		logins[index] = &Login{
 			Uuid:      login.Uuid,
 			Login:     login.Login,
-			Ban:       login.Ban,
+			Banned:    login.Banned,
 			CreatedAt: login.CreatedAt,
 			UpdateAt:  login.UpdateAt,
 		}

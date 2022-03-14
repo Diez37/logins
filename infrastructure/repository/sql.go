@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"github.com/Diez37/logins/infrastructure/time"
 	"github.com/diez37/go-packages/clients/db"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
@@ -9,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"io"
-	"time"
 )
 
 const (
@@ -66,7 +66,7 @@ func (repository *sql) find(ctx context.Context, sql string, args ...interface{}
 	for rows.Next() {
 		login := &Login{}
 
-		if err := rows.Scan(&login.Id, &login.Uuid, &login.Login, &login.Ban, &login.CreatedAt, &login.UpdateAt); err != nil {
+		if err := rows.Scan(&login.Id, &login.Uuid, &login.Login, &login.Banned, &login.CreatedAt, &login.UpdateAt); err != nil {
 			return nil, err
 		}
 
@@ -83,7 +83,7 @@ func (repository *sql) BanByUuid(ctx context.Context, uuid uuid.UUID) (bool, err
 	span.SetAttributes(attribute.String("uuid", uuid.String()))
 
 	sql, args, err := goqu.Update(sqlTableName).
-		Set(goqu.Record{"ban": true, "update_at": time.Now()}).
+		Set(goqu.Record{"banned": true, "update_at": time.NowUTC()}).
 		Where(goqu.Ex{"uuid": uuid}).ToSQL()
 	if err != nil {
 		return false, err
@@ -157,7 +157,7 @@ func (repository *sql) Page(ctx context.Context, page uint, limit uint) ([]*Logi
 	for rows.Next() {
 		login := &Login{}
 
-		if err := rows.Scan(&login.Id, &login.Uuid, &login.Login, &login.Ban, &login.CreatedAt, &login.UpdateAt); err != nil {
+		if err := rows.Scan(&login.Id, &login.Uuid, &login.Login, &login.Banned, &login.CreatedAt, &login.UpdateAt); err != nil {
 			return nil, err
 		}
 
@@ -177,7 +177,7 @@ func (repository *sql) Update(ctx context.Context, login *Login) (*Login, error)
 
 	span.SetAttributes(attribute.String("action", "update"))
 
-	now := time.Now()
+	now := time.NowUTC()
 	login.UpdateAt = &now
 
 	sql, args, err := goqu.Update(sqlTableName).Set(login).Where(goqu.Ex{"uuid": login.Uuid}).ToSQL()
@@ -205,7 +205,7 @@ func (repository *sql) Insert(ctx context.Context, login *Login) (*Login, error)
 
 	login.Uuid = uuid.New()
 
-	now := time.Now()
+	now := time.NowUTC()
 	login.CreatedAt = &now
 
 	sql, args, err := goqu.Insert(sqlTableName).Rows(login).ToSQL()

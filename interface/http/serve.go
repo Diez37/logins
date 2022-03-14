@@ -9,6 +9,7 @@ import (
 	httpServer "github.com/diez37/go-packages/server/http"
 	"github.com/diez37/go-packages/server/http/helpers"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"net/http"
@@ -23,6 +24,7 @@ func Serve(ctx context.Context, container container.Container, logger log.Logger
 		tracer trace.Tracer,
 		errorHelper *helpers.Error,
 		router chi.Router,
+		validator *validator.Validate,
 	) error {
 
 		router.Mount("/api", api.Router(
@@ -30,6 +32,7 @@ func Serve(ctx context.Context, container container.Container, logger log.Logger
 			tracer,
 			errorHelper,
 			logger,
+			validator,
 		))
 
 		errGroup := &errgroup.Group{}
