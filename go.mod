@@ -3,7 +3,7 @@ module github.com/Diez37/logins
 go 1.16
 
 require (
-	github.com/diez37/go-packages v1.1.2
+	github.com/diez37/go-packages v1.2.2
 	github.com/doug-martin/goqu/v9 v9.18.0
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
